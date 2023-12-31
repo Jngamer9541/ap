@@ -1,0 +1,190 @@
+import sys
+import traceback
+import pygame
+from PyQt5.QtWidgets import (
+    QApplication, QMainWindow, QPlainTextEdit, QVBoxLayout, QAction, QFileDialog,
+    QTextBrowser, QWidget, QPushButton, QHBoxLayout, QLabel, QLineEdit, QTreeView,
+    QFileSystemModel, QDockWidget, QTextEdit
+)
+from PyQt5.QtCore import Qt, QDir, QTextCursor
+
+class CodeEditorGame(QMainWindow):
+    def __init__(self):
+        super().__init__()
+
+        self.initUI()
+
+    def initUI(self):
+        self.central_widget = QWidget(self)
+        self.setCentralWidget(self.central_widget)
+
+        # Create a layout
+        layout = QHBoxLayout(self.central_widget)
+
+        # Left side - File Explorer
+        self.createFileExplorer()
+
+        # Right side - Code Editor and Result Display
+        self.createCodeEditorAndResultDisplay()
+
+        # Set window properties
+        self.setGeometry(100, 100, 1200, 800)
+        self.setWindowTitle('PythonIDE with Game')
+
+    def createFileExplorer(self):
+        explorer_layout = QVBoxLayout()
+
+        # Label for the file explorer
+        label = QLabel("Explorer", self)
+        label.setAlignment(Qt.AlignCenter)
+        explorer_layout.addWidget(label)
+
+        # File System Model and TreeView
+        self.model = QFileSystemModel()
+        self.model.setRootPath(QDir.rootPath())
+
+        self.tree = QTreeView()
+        self.tree.setModel(self.model)
+        self.tree.setRootIndex(self.model.index(QDir.rootPath()))
+        self.tree.setHeaderHidden(True)
+
+        explorer_layout.addWidget(self.tree)
+
+        # Create a dockable widget for the file explorer
+        dock = QDockWidget("File Explorer", self)
+        dock.setWidget(QWidget(self))
+        dock.widget().setLayout(explorer_layout)
+
+        # Set up dock properties
+        dock.setFeatures(QDockWidget.DockWidgetFloatable | QDockWidget.DockWidgetMovable)
+        dock.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
+
+        self.addDockWidget(Qt.LeftDockWidgetArea, dock)
+
+    def createCodeEditorAndResultDisplay(self):
+        editor_layout = QVBoxLayout()
+
+        # Create a central widget (code editor)
+        self.code_editor = QPlainTextEdit(self)
+        editor_layout.addWidget(self.code_editor)
+
+        # Create a menu bar
+        menubar = self.menuBar()
+
+        # "File" menu
+        file_menu = menubar.addMenu('File')
+        open_action = QAction('Open', self)
+        open_action.triggered.connect(self.openFile)
+        file_menu.addAction(open_action)
+
+        save_action = QAction('Save', self)
+        save_action.triggered.connect(self.saveFile)
+        file_menu.addAction(save_action)
+
+        # "Run" menu
+        run_menu = menubar.addMenu('Run')
+        run_action = QAction('Run Code', self)
+        run_action.triggered.connect(self.runCode)
+        run_menu.addAction(run_action)
+
+        # Create a result display area
+        self.result_display = QTextBrowser(self)
+        editor_layout.addWidget(self.result_display)
+
+        # Set up a button to clear the result display
+        clear_button = QPushButton('Clear Result', self)
+        clear_button.clicked.connect(self.clearResult)
+        editor_layout.addWidget(clear_button)
+
+        # Run game button
+        run_game_button = QPushButton('Run Game', self)
+        run_game_button.clicked.connect(self.runGame)
+        editor_layout.addWidget(run_game_button)
+
+        # Create a dockable widget for the code editor and result display
+        dock = QDockWidget("Code Editor", self)
+        dock.setWidget(QWidget(self))
+        dock.widget().setLayout(editor_layout)
+
+        # Set up dock properties
+        dock.setFeatures(QDockWidget.DockWidgetFloatable | QDockWidget.DockWidgetMovable)
+        dock.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
+
+        self.addDockWidget(Qt.RightDockWidgetArea, dock)
+
+    def openFile(self):
+        options = QFileDialog.Options()
+        options |= QFileDialog.ReadOnly
+        file_name, _ = QFileDialog.getOpenFileName(self, "Open File", "", "Python Files (*.py);;All Files (*)", options=options)
+
+        if file_name:
+            with open(file_name, 'r') as file:
+                content = file.read()
+                self.code_editor.setPlainText(content)
+
+    def saveFile(self):
+        options = QFileDialog.Options()
+        options |= QFileDialog.ReadOnly
+        file_name, _ = QFileDialog.getSaveFileName(self, "Save File", "", "Python Files (*.py);;All Files (*)", options=options)
+
+        if file_name:
+            with open(file_name, 'w') as file:
+                file.write(self.code_editor.toPlainText())
+
+    def runCode(self):
+        code = self.code_editor.toPlainText()
+
+        try:
+            # Redirect stdout to capture print statements
+            sys.stdout = self.result_display
+            sys.stderr = self.result_display
+
+            # Execute the code
+            exec(code)
+
+        except Exception as e:
+            # Display any errors in the result display
+            traceback.print_exc()
+
+        finally:
+            # Reset stdout and stderr
+            sys.stdout = sys.__stdout__
+            sys.stderr = sys.__stderr__
+
+            # Move cursor to the end of the result display
+            self.result_display.moveCursor(QTextCursor.End)
+
+    def clearResult(self):
+        # Clear the result display
+        self.result_display.clear()
+
+    def runGame(self):
+        # Initialize Pygame
+        pygame.init()
+
+        # Set up the game window
+        screen = pygame.display.set_mode((800, 600))
+        pygame.display.set_caption('Simple Game')
+
+        running = True
+        while running:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+
+            # Clear the screen
+            screen.fill((255, 255, 255))
+
+            # Draw a basic shape (example)
+            pygame.draw.rect(screen, (0, 0, 255), pygame.Rect(50, 50, 100, 100))
+
+            # Update the display
+            pygame.display.flip()
+
+        pygame.quit()
+
+if __name__ == '__main__':
+    app = QApplication(sys.argv)
+    editor_game = CodeEditorGame()
+    editor_game.show()
+    sys.exit(app.exec_())
